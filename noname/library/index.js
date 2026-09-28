@@ -38,7 +38,9 @@ export class Library {
 	updateURLS = updateURLs;
 	updateURL = updateURLs.github;
 	mirrorURL = updateURLs.coding;
-	hallURL = "";
+	// The repository ships with a compatible WebSocket lobby in the server folder.
+	// Reuse the page hostname so LAN clients automatically target the host machine.
+	hallURL = `${typeof location == "object" && location.hostname ? location.hostname : "127.0.0.1"}:8082`;
 	assetURL = assetURL;
 	userAgent = userAgent;
 	characterDefaultPicturePath = characterDefaultPicturePath;
