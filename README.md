@@ -56,6 +56,14 @@ node dist/cli.js --port 8082
 
 安装zerotier msi网址：https://www.zerotier.com/
 
+下面的链接是zerotier的链接：https://central.zerotier.com/network/b103a835d2cef2b6
+
+## 主机服务器
 ![Device Guide](readme_images\device_add_guide.png)
 
-https://central.zerotier.com/network/b103a835d2cef2b6
+
+## 其他人的设备
+![Other Device](readme_images\other_devices.jpg)
+
+
+
