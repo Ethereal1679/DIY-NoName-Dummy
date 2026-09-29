@@ -51,18 +51,21 @@ function success(response, data) {
 function getLanAddresses(requestAddress = "") {
 	const normalizedRequestAddress = requestAddress.replace(/^::ffff:/, "");
 	const virtualInterfacePattern = /virtual|vmware|vbox|hyper-v|wsl|docker|vethernet|bluetooth|zerotier|tailscale/i;
+	const zeroTierInterfacePattern = /zerotier/i;
 	const preferredInterfacePattern = /wi-?fi|wlan|wireless|ethernet|无线|以太网/i;
 	const addresses = [];
 
 	for (const [name, entries] of Object.entries(networkInterfaces())) {
 		for (const entry of entries || []) {
 			if ((entry.family !== "IPv4" && entry.family !== 4) || entry.internal) continue;
-			if (virtualInterfacePattern.test(name) || /^169\.254\./.test(entry.address)) continue;
+			const isZeroTier = zeroTierInterfacePattern.test(name);
+			if ((virtualInterfacePattern.test(name) && !isZeroTier) || /^169\.254\./.test(entry.address)) continue;
 			let priority = 0;
 			if (entry.address === normalizedRequestAddress) priority += 100;
 			if (/^(10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.)/.test(entry.address)) priority += 20;
 			if (preferredInterfacePattern.test(name)) priority += 10;
-			addresses.push({ name, address: entry.address, priority });
+			if (isZeroTier) priority += 15;
+			addresses.push({ name, address: entry.address, priority, isZeroTier });
 		}
 	}
 
@@ -79,9 +82,12 @@ async function handleApi(request, response, url) {
 	try {
 		if (url.pathname === "/networkInfo" && request.method === "GET") {
 			const addresses = getLanAddresses(request.socket.localAddress);
+			const lanAddress = addresses.find(({ isZeroTier }) => !isZeroTier)?.address || null;
+			const zeroTierAddress = addresses.find(({ isZeroTier }) => isZeroTier)?.address || null;
 			return success(response, {
-				addresses: addresses.map(({ name, address }) => ({ name, address })),
-				preferredAddress: addresses[0]?.address || null,
+				addresses: addresses.map(({ name, address, isZeroTier }) => ({ name, address, isZeroTier })),
+				preferredAddress: lanAddress || zeroTierAddress,
+				zeroTierAddress,
 				webPort: port,
 				multiplayerPort: 8082,
 			});

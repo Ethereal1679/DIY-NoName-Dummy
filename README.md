@@ -34,16 +34,24 @@ python -m http.server 8080
 http://127.0.0.1:8080/
 ```
 
-# 3. 联机
-  启动网页：
+# 3. 局域网联机
 
-  cd H:\My_Game\NoName-for-dummies-main
-  py -m http.server 8080
+启动网页：
 
-  启动联机服务器：
+cd H:\My_Game\NoName-for-dummies-main
+py -m http.server 8080
 
-  cd H:\My_Game\NoName-for-dummies-main\server
-  pnpm run build
-  node dist/cli.js --port 8082
+启动联机服务器：
 
-  打开 http://127.0.0.1:8080，选择“联机”。局域网其他玩家访问房主的 http://局域网IP:8080，并确保 Windows 防火墙放行 TCP 8080 和 8082。
+cd H:\My_Game\NoName-for-dummies-main\server
+pnpm run build
+node dist/cli.js --port 8082
+
+打开 http://127.0.0.1:8080，选择“联机”。局域网其他玩家访问房主的 http://局域网IP:8080，并确保 Windows 防火墙放行 TCP 8080 和 8082。
+
+
+# 4. 非局域网联机
+
+使用ZeroTier进行内网穿透
+
+https://central.zerotier.com/network/b103a835d2cef2b6

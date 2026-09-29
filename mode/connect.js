@@ -146,15 +146,19 @@ game.import("mode", function (lib, game, ui, get, ai, _status) {
 						var addressList = info.addresses.map(function (item) {
 							return item.address;
 						});
+						var remoteAddress = info.zeroTierAddress || info.preferredAddress;
 						networkDetails.textContent =
 							"局域网 IPv4：" +
-							addressList.join(" / ") +
+							addressList.filter(function (address) {
+								return address != info.zeroTierAddress;
+							}).join(" / ") +
+							(info.zeroTierAddress ? "\nZeroTier IPv4：" + info.zeroTierAddress : "") +
 							"\n其他电脑打开：http://" +
-							info.preferredAddress +
+							remoteAddress +
 							":" +
 							info.webPort +
 							"\n联机地址：" +
-							info.preferredAddress +
+							remoteAddress +
 							":" +
 							info.multiplayerPort;
 						networkDetails.style.whiteSpace = "pre-line";
