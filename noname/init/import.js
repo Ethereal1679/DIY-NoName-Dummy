@@ -44,7 +44,7 @@ export const importCharacterPack = generateImportFunction(
 	"character",
 	(name) =>
 		updatedCharacterPacks.has(name)
-			? `../../wujiang_noname_update/character_noname_update/${name}/index.js`
+			? `../../character/${name}/index.js`
 			: `../../character/${name}.js`
 );
 

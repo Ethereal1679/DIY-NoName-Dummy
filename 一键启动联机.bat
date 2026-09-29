@@ -27,23 +27,45 @@ if not defined NODE_CMD (
     exit /b 1
 )
 
-set "PNPM_CMD="
-where pnpm.cmd >nul 2>&1
-if not errorlevel 1 set "PNPM_CMD=pnpm.cmd"
-if not defined PNPM_CMD (
-    where corepack.cmd >nul 2>&1
-    if not errorlevel 1 set "PNPM_CMD=corepack pnpm"
+rem Prefer an already installed pnpm.  Calling "corepack pnpm" as the first
+rem fallback can make Corepack download a newer pnpm binary and appear to
+rem hang when the machine cannot reach the package registry.  npm is bundled
+rem with Node.js and is a safe fallback for installing/building this server.
+set "PKG_CMD="
+set "PKG_LABEL="
+set "PKG_INSTALL_ARGS="
+
+if exist "%LOCALAPPDATA%\pnpm\pnpm.exe" (
+    set "PKG_CMD=%LOCALAPPDATA%\pnpm\pnpm.exe"
+    set "PKG_LABEL=pnpm"
 )
-if not defined PNPM_CMD (
-    echo [ERROR] pnpm was not found. Install pnpm first.
+if not defined PKG_CMD if exist "%APPDATA%\npm\pnpm.cmd" (
+    set "PKG_CMD=%APPDATA%\npm\pnpm.cmd"
+    set "PKG_LABEL=pnpm"
+)
+if not defined PKG_CMD (
+    where.exe npm.cmd >nul 2>&1
+    if not errorlevel 1 (
+        set "PKG_CMD=npm.cmd"
+        set "PKG_LABEL=npm"
+        set "PKG_INSTALL_ARGS=--no-audit --no-fund --package-lock=false --fetch-timeout=30000 --fetch-retries=1"
+    )
+)
+if not defined PKG_CMD (
+    echo [ERROR] Neither pnpm nor npm was found. Install Node.js first.
     pause
     exit /b 1
 )
 
-if not exist "%SERVER%\node_modules\tsup" (
+echo Package manager: %PKG_LABEL% (%PKG_CMD%)
+
+set "NEED_INSTALL="
+if not exist "%SERVER%\node_modules\tsup" set "NEED_INSTALL=1"
+if not exist "%SERVER%\node_modules\ws" set "NEED_INSTALL=1"
+if defined NEED_INSTALL (
     echo Installing server dependencies...
     pushd "%SERVER%"
-    %PNPM_CMD% install
+    call "%PKG_CMD%" %PKG_INSTALL_ARGS% install
     if errorlevel 1 (
         popd
         echo [ERROR] Dependency installation failed.
@@ -61,7 +83,7 @@ echo [1/3] Starting web server on TCP 8080...
 start "NoName Web 8080" /D "%ROOT%" cmd /k "%NODE_CMD% web-server.mjs --port 8080"
 
 echo [2/3] Building and starting WebSocket server on TCP 8082...
-start "NoName WebSocket 8082" /D "%SERVER%" cmd /k "%PNPM_CMD% run build && node dist\cli.js --port 8082"
+start "NoName WebSocket 8082" /D "%SERVER%" cmd /k call "%PKG_CMD%" run build ^&^& node dist\cli.js --port 8082
 
 echo [3/3] Opening the local game page...
 timeout /t 3 /nobreak >nul

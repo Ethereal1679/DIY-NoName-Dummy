@@ -189,3 +189,17 @@ GitHub： https://github.com/libccy/noname/releases/tag/chromium77-client
 请尽量保证游玩的 Chrome 系浏览器或手机 Webview 的`内核版本大于等于77`
 
 提交 Pull Request 时请推送到"PR-Branch"分支！
+
+
+# =====================================================================
+
+代码提交
+
+```python
+• git add -A
+  git commit -m "update"
+  git config --global http.version HTTP/1.1
+  git config --global http.lowSpeedLimit 0
+  git config --global http.lowSpeedTime 999999
+  git push -u origin $(git branch --show-current)
+```

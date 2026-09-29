@@ -3,20 +3,20 @@
 当前代码是一个纯前端静态 Web 游戏项目，不是 Vite/npm 工程：根目录没有 package.json，入口是 index.html，因此无需编译。
 
   在 PowerShell 中运行：
-```
+```shell
   cd H:\My_Game\NoName-for-dummies-main
   py -m http.server 8080
 ```
   然后用 Chrome/Edge 打开：
-```
+```shell
   http://127.0.0.1:8080/
 ```
   如果没有 py 命令，可改用：
-```
+```shell
   python -m http.server 8080
 ```
   运行逻辑大致是：
-```
+```shell
   index.html
     → noname.js 启动游戏
     → 加载 game、character、card、mode、extension 等资源
@@ -24,8 +24,13 @@
 ```
 
 # 2. 使用
+
+双击运行一键启动脚本(windows)
+
+或者
+
 运行
-```
+```shell
 python -m http.server 8080
 ```
 
@@ -37,16 +42,16 @@ http://127.0.0.1:8080/
 # 3. 局域网联机
 
 启动网页：
-
+```shell
 cd H:\My_Game\NoName-for-dummies-main
 py -m http.server 8080
-
+```
 启动联机服务器：
-
+```shell
 cd H:\My_Game\NoName-for-dummies-main\server
 pnpm run build
 node dist/cli.js --port 8082
-
+```
 打开 http://127.0.0.1:8080，选择“联机”。局域网其他玩家访问房主的 http://局域网IP:8080，并确保 Windows 防火墙放行 TCP 8080 和 8082。
 
 
@@ -56,6 +61,8 @@ node dist/cli.js --port 8082
 
 安装zerotier msi网址：https://www.zerotier.com/
 
+或者使用ZeroTier下的文件进行安装
+
 下面的链接是zerotier的链接：https://central.zerotier.com/network/b103a835d2cef2b6
 
 ## 主机服务器
@@ -64,6 +71,5 @@ node dist/cli.js --port 8082
 
 ## 其他人的设备
 ![Other Device](readme_images\other_devices.jpg)
-
 
 
