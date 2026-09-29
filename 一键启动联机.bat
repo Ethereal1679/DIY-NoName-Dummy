@@ -18,15 +18,11 @@ if not exist "%SERVER%\package.json" (
     exit /b 1
 )
 
-set "PYTHON_CMD="
-where py >nul 2>&1
-if not errorlevel 1 set "PYTHON_CMD=py"
-if not defined PYTHON_CMD (
-    where python >nul 2>&1
-    if not errorlevel 1 set "PYTHON_CMD=python"
-)
-if not defined PYTHON_CMD (
-    echo [ERROR] Python was not found. Install Python first.
+set "NODE_CMD="
+where node.exe >nul 2>&1
+if not errorlevel 1 set "NODE_CMD=node.exe"
+if not defined NODE_CMD (
+    echo [ERROR] Node.js was not found. Install Node.js first.
     pause
     exit /b 1
 )
@@ -62,7 +58,7 @@ echo   NoName multiplayer startup
 echo ========================================
 echo.
 echo [1/3] Starting web server on TCP 8080...
-start "NoName Web 8080" /D "%ROOT%" cmd /k "%PYTHON_CMD% -m http.server 8080 --bind 0.0.0.0"
+start "NoName Web 8080" /D "%ROOT%" cmd /k "%NODE_CMD% web-server.mjs --port 8080"
 
 echo [2/3] Building and starting WebSocket server on TCP 8082...
 start "NoName WebSocket 8082" /D "%SERVER%" cmd /k "%PNPM_CMD% run build && node dist\cli.js --port 8082"

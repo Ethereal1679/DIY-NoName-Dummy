@@ -53,6 +53,7 @@ window.noname_package = {
 		swd: "轩辕剑",
 		gujian: "古剑奇谭",
 		xianjian: "仙剑奇侠传",
+		newjiang: "New Characters",
 	},
 	card: {
 		standard: "标准",

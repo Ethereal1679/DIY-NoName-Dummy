@@ -16,7 +16,10 @@
 			const builtinModules = require("module").builtinModules;
 			if (Array.isArray(builtinModules)) {
 				const importMap = {
-					imports: {},
+					imports: {
+						noname: "./noname.js",
+						dedent: "./dedent.js",
+					},
 				};
 				for (const module of builtinModules) {
 					importMap.imports[module] = importMap.imports[`node:${module}`] =
@@ -27,6 +30,16 @@
 				im.textContent = JSON.stringify(importMap);
 				document.currentScript.after(im);
 			}
+		} else {
+			const im = document.createElement("script");
+			im.type = "importmap";
+			im.textContent = JSON.stringify({
+				imports: {
+					noname: "./noname.js",
+					dedent: "./dedent.js",
+				},
+			});
+			document.currentScript.after(im);
 		}
 	</script>
 	<script>

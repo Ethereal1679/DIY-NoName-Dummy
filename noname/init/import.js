@@ -11,9 +11,41 @@ export const importCardPack = generateImportFunction("card", (name) => `../../ca
  * @param {string} name - 武将包名
  * @returns {Promise<void>}
  */
+const updatedCharacterPacks = new Set([
+	"bingshi",
+	"clan",
+	"collab",
+	"diy",
+	"extra",
+	"huicui",
+	"jsrg",
+	"key",
+	"mobile",
+	"newjiang",
+	"offline",
+	"old",
+	"onlyOL",
+	"refresh",
+	"sb",
+	"shenhua",
+	"shiji",
+	"sixiang",
+	"sp",
+	"sp2",
+	"standard",
+	"sxrm",
+	"tw",
+	"xianding",
+	"yijiang",
+	"yingbian",
+]);
+
 export const importCharacterPack = generateImportFunction(
 	"character",
-	(name) => `../../character/${name}.js`
+	(name) =>
+		updatedCharacterPacks.has(name)
+			? `../../wujiang_noname_update/character_noname_update/${name}/index.js`
+			: `../../character/${name}.js`
 );
 
 /**
