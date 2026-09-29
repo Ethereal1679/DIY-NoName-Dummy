@@ -97,6 +97,72 @@ game.import("mode", function (lib, game, ui, get, ai, _status) {
 				ui.window.appendChild(button);
 				ui.ipbutton = button;
 
+				var networkInfo = ui.create.div(".shadowed");
+				networkInfo.style.width = "min(460px, calc(100% - 32px))";
+				networkInfo.style.minHeight = "82px";
+				networkInfo.style.boxSizing = "border-box";
+				networkInfo.style.padding = "10px 14px";
+				networkInfo.style.left = "50%";
+				networkInfo.style.top = "calc(50% + 125px)";
+				networkInfo.style.transform = "translateX(-50%)";
+				networkInfo.style.borderRadius = "6px";
+				networkInfo.style.background = "rgba(42, 35, 30, 0.62)";
+				networkInfo.style.color = "white";
+				networkInfo.style.fontFamily = "sans-serif";
+				networkInfo.style.fontSize = "16px";
+				networkInfo.style.lineHeight = "23px";
+				networkInfo.style.textAlign = "left";
+				networkInfo.style.whiteSpace = "normal";
+				networkInfo.style.overflowWrap = "anywhere";
+				networkInfo.style.webkitUserSelect = "text";
+				networkInfo.style.userSelect = "text";
+
+				var networkTitle = document.createElement("div");
+				networkTitle.textContent = "联机主机信息";
+				networkTitle.style.position = "relative";
+				networkTitle.style.display = "block";
+				networkTitle.style.fontFamily = "xinwei";
+				networkTitle.style.fontSize = "20px";
+				networkTitle.style.textAlign = "center";
+				networkTitle.style.marginBottom = "3px";
+				networkInfo.appendChild(networkTitle);
+
+				var networkDetails = document.createElement("div");
+				networkDetails.textContent = "正在检测局域网 IPv4...";
+				networkDetails.style.position = "relative";
+				networkDetails.style.display = "block";
+				networkInfo.appendChild(networkDetails);
+				ui.window.appendChild(networkInfo);
+				ui.networkInfo = networkInfo;
+
+				fetch("/networkInfo", { cache: "no-store" })
+					.then(function (response) {
+						if (!response.ok) throw new Error("HTTP " + response.status);
+						return response.json();
+					})
+					.then(function (result) {
+						var info = result && result.success && result.data;
+						if (!info || !info.preferredAddress) throw new Error("No LAN IPv4 address");
+						var addressList = info.addresses.map(function (item) {
+							return item.address;
+						});
+						networkDetails.textContent =
+							"局域网 IPv4：" +
+							addressList.join(" / ") +
+							"\n其他电脑打开：http://" +
+							info.preferredAddress +
+							":" +
+							info.webPort +
+							"\n联机地址：" +
+							info.preferredAddress +
+							":" +
+							info.multiplayerPort;
+						networkDetails.style.whiteSpace = "pre-line";
+					})
+					.catch(function () {
+						networkDetails.textContent = "未检测到局域网 IPv4，请确认已连接 Wi-Fi 或网线。";
+					});
+
 				ui.hall_button = ui.create.system(
 					"联机大厅",
 					function () {

@@ -8034,6 +8034,10 @@ export class Game {
 			ui.ipbutton.remove();
 			delete ui.ipbutton;
 		}
+		if (ui.networkInfo) {
+			ui.networkInfo.remove();
+			delete ui.networkInfo;
+		}
 		if (ui.recentIP) {
 			ui.recentIP.remove();
 			delete ui.recentIP;

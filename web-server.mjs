@@ -1,5 +1,6 @@
 import { createServer } from "node:http";
 import { promises as fs } from "node:fs";
+import { networkInterfaces } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -47,6 +48,27 @@ function success(response, data) {
 	return json(response, 200, { success: true, ...(data === undefined ? {} : { data }) });
 }
 
+function getLanAddresses(requestAddress = "") {
+	const normalizedRequestAddress = requestAddress.replace(/^::ffff:/, "");
+	const virtualInterfacePattern = /virtual|vmware|vbox|hyper-v|wsl|docker|vethernet|bluetooth|zerotier|tailscale/i;
+	const preferredInterfacePattern = /wi-?fi|wlan|wireless|ethernet|无线|以太网/i;
+	const addresses = [];
+
+	for (const [name, entries] of Object.entries(networkInterfaces())) {
+		for (const entry of entries || []) {
+			if ((entry.family !== "IPv4" && entry.family !== 4) || entry.internal) continue;
+			if (virtualInterfacePattern.test(name) || /^169\.254\./.test(entry.address)) continue;
+			let priority = 0;
+			if (entry.address === normalizedRequestAddress) priority += 100;
+			if (/^(10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.)/.test(entry.address)) priority += 20;
+			if (preferredInterfacePattern.test(name)) priority += 10;
+			addresses.push({ name, address: entry.address, priority });
+		}
+	}
+
+	return addresses.sort((a, b) => b.priority - a.priority || a.address.localeCompare(b.address));
+}
+
 async function readBody(request) {
 	const chunks = [];
 	for await (const chunk of request) chunks.push(chunk);
@@ -55,6 +77,15 @@ async function readBody(request) {
 
 async function handleApi(request, response, url) {
 	try {
+		if (url.pathname === "/networkInfo" && request.method === "GET") {
+			const addresses = getLanAddresses(request.socket.localAddress);
+			return success(response, {
+				addresses: addresses.map(({ name, address }) => ({ name, address })),
+				preferredAddress: addresses[0]?.address || null,
+				webPort: port,
+				multiplayerPort: 8082,
+			});
+		}
 		if (url.pathname === "/readFile") {
 			const data = await fs.readFile(resolvePath(url.searchParams.get("fileName")));
 			return success(response, Array.from(data));
