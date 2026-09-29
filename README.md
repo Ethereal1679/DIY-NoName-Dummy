@@ -52,6 +52,10 @@ node dist/cli.js --port 8082
 
 # 4. 非局域网联机
 
-使用ZeroTier进行内网穿透
+使用ZeroTier进行内网穿透,尝试非局域网进行联机
+
+安装zerotier msi网址：https://www.zerotier.com/
+
+![Device Guide](readme_images\device_add_guide.png)
 
 https://central.zerotier.com/network/b103a835d2cef2b6
