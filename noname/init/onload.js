@@ -634,8 +634,10 @@ export async function onload(resetGameTimeout) {
 				delete lib.init[i];
 			}
 		}
-		if (!_status.connectMode) {
+		if (!_status.connectMode || lib.extensions.some((extension) => extension[0] == "指示线")) {
 			for (var i = 0; i < lib.extensions.length; i++) {
+				// 联机入口会跳过其他扩展，但指示线属于客户端表现层，需要在进入房间后继续生效。
+				if (_status.connectMode && lib.extensions[i][0] != "指示线") continue;
 				try {
 					_status.extension = lib.extensions[i][0];
 					_status.evaluatingExtension = lib.extensions[i][3];

@@ -269,6 +269,28 @@ export async function boot() {
 		}
 	}
 
+	// 指示线是随项目提供的内置扩展，确保已有用户配置也会自动启用。
+	const bundledExtension = "指示线";
+	let configuredExtensions = config.get("extensions");
+	if (!Array.isArray(configuredExtensions)) configuredExtensions = [];
+	if (!configuredExtensions.includes(bundledExtension)) configuredExtensions.push(bundledExtension);
+	config.set("extensions", configuredExtensions);
+	game.saveConfig("extensions", configuredExtensions);
+	if (config.get("extension_指示线_integrated") !== true) {
+		config.set("extension_指示线_enable", true);
+		game.saveConfig("extension_指示线_enable", true);
+		config.set("extension_指示线_integrated", true);
+		game.saveConfig("extension_指示线_integrated", true);
+	}
+	if (config.get("extension_指示线_zhishixian") === undefined) {
+		config.set("extension_指示线_zhishixian", "yulong");
+		game.saveConfig("extension_指示线_zhishixian", "yulong");
+	}
+	if (config.get("zuanzhishixian") === undefined) {
+		config.set("zuanzhishixian", "yulong");
+		game.saveConfig("zuanzhishixian", "yulong");
+	}
+
 	for (const name in get.config("translate")) {
 		lib.translate[name] = get.config("translate")[name];
 	}
@@ -429,6 +451,8 @@ export async function boot() {
 	}
 	localStorage.removeItem("show_splash_off");
 	const extensionlist = [];
+	const bannedExtensions = Reflect.get(window, "bannedExtensions") || [];
+	if (!bannedExtensions.includes("指示线")) extensionlist.push("指示线");
 	if (!localStorage.getItem(lib.configprefix + "disable_extension")) {
 		if (config.has("extensions") && config.get("extensions").length) {
 			Reflect.set(window, "resetExtension", () => {
@@ -445,12 +469,15 @@ export async function boot() {
 			}
 		}
 		for (var name = 0; name < config.get("extensions").length; name++) {
-			if (Reflect.get(window, "bannedExtensions").includes(config.get("extensions")[name])) {
+			if (bannedExtensions.includes(config.get("extensions")[name])) {
 				continue;
 			}
-			var extcontent = localStorage.getItem(
-				lib.configprefix + "extension_" + config.get("extensions")[name]
-			);
+			const extensionName = config.get("extensions")[name];
+			// 内置扩展始终从项目文件加载，避免旧的 localStorage 源码覆盖当前版本。
+			var extcontent =
+				extensionName == bundledExtension
+					? null
+					: localStorage.getItem(lib.configprefix + "extension_" + extensionName);
 			if (extcontent) {
 				//var backup_onload=lib.init.onload;
 				_status.evaluatingExtension = true;
@@ -462,7 +489,9 @@ export async function boot() {
 				//lib.init.onload=backup_onload;
 				_status.evaluatingExtension = false;
 			} else {
+			if (!extensionlist.includes(config.get("extensions")[name])) {
 				extensionlist.push(config.get("extensions")[name]);
+			}
 			}
 		}
 	}
@@ -593,8 +622,6 @@ export async function boot() {
 	if (extensionlist.length) {
 		_status.extensionLoading = [];
 		_status.extensionLoaded = [];
-
-		const bannedExtensions = Reflect.get(window, "bannedExtensions");
 
 		const extensionsLoading = [];
 		for (const name of extensionlist) {
