@@ -759,7 +759,7 @@ export async function onload(resetGameTimeout) {
 			splash.delete(1000);
 			delete window.inSplash;
 			// 这不好删/m/，顺带lib.init.reset也不好删
-			window.resetGameTimeout = setTimeout(lib.init.reset, 10000);
+			window.resetGameTimeout = setTimeout(lib.init.reset, parseInt(lib.config.max_loadtime) || 60000);
 
 			this.listenTransition(function () {
 				lib.init.js(lib.assetURL + "mode", lib.config.mode, proceed);

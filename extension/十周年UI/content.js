@@ -68,7 +68,7 @@ decadeModule.import(function(lib, game, ui, get, ai, _status){
 					else _status.event.result = { bool: this.confirmed === true }
 					
 					game.broadcastAll(function(){
-						if (!window.decadeUI && decadeUI.eventDialog) return;
+						if (!window.decadeUI || !decadeUI.eventDialog) return;
 						decadeUI.eventDialog.close();
 						decadeUI.eventDialog.finished = true;
 						decadeUI.eventDialog.finishing = false;
@@ -102,7 +102,7 @@ decadeModule.import(function(lib, game, ui, get, ai, _status){
 				},
 				swap:function(source, target){
 					game.broadcast(function(source, target){
-						if (!window.decadeUI && decadeUI.eventDialog) return;
+						if (!window.decadeUI || !decadeUI.eventDialog) return;
 						
 						decadeUI.eventDialog.swap(source, target);
 					}, source, target);
@@ -148,7 +148,7 @@ decadeModule.import(function(lib, game, ui, get, ai, _status){
 				},
 				switch:function(card){
 					game.broadcast(function(card){
-						if (!window.decadeUI && decadeUI.eventDialog) return;
+						if (!window.decadeUI || !decadeUI.eventDialog) return;
 						
 						decadeUI.eventDialog.switch(card);
 					}, card);
@@ -480,4 +480,3 @@ decadeModule.import(function(lib, game, ui, get, ai, _status){
 		},
 	};
 });
-

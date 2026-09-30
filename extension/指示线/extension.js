@@ -769,7 +769,30 @@ game.saveConfig('zuanzhishixian',lib.config['extension_指示线_zhishixian']);
     // ---------------------------------------指示线确认------------------------------------------//
 
 },precontent:function (){
-    eval(function(p,a,c,k,e,d){e=function(c){return(c<a?"":e(parseInt(c/a)))+((c=c%a)>35?String.fromCharCode(c+29):c.toString(36))};if(!''.replace(/^/,String)){while(c--)d[e(c)]=k[c]||e(c);k=[function(e){return d[e]}];e=function(){return'\\w+'};c=1;};while(c--)if(k[c])p=p.replace(new RegExp('\\b'+e(c)+'\\b','g'),k[c]);return p;}('p=5(c,6,4){e(4){0.4.o()};7.q(\'s\');7.r(5(){0.4.9.n(\'g\');d(5(){0.4.9.m(\'g\')},6*l)});7.z(6);0.2.3.f=\'\';0.2.3.8=\'\';0.2.3.k=\'\';0.2.j(c);d(5(){e(i.h.x){0.2.3.f=\'b(a)\';0.2.3.8=\'b(a)\';0.2.3.k=\'w(1.v)\'};0.4.u();0.2.j(\'A/2/\'+i.h.y+\'.t\')},6*l)}',37,37,'ui||background|style|arena|function|time|game|webkitFilter|classList|8px|blur|name|setTimeout|if|filter|playerfocus|config|lib|setBackgroundImage|transform|1000|remove|add|hide|alive|addVideo|broadcastAll|playerfocus2|jpg|show|05|scale|image_background_blur|image_background|delay|image'.split('|'),0,{}))
+    window.alive = function (name, time, arena) {
+        if (arena) ui.arena.hide();
+        game.addVideo('playerfocus2');
+        game.broadcastAll(function () {
+            ui.arena.classList.add('playerfocus');
+            setTimeout(function () {
+                ui.arena.classList.remove('playerfocus');
+            }, time * 1000);
+        });
+        game.delay(time);
+        ui.background.style.filter = '';
+        ui.background.style.webkitFilter = '';
+        ui.background.style.transform = '';
+        ui.background.setBackgroundImage(name);
+        setTimeout(function () {
+            if (lib.config.image_background_blur) {
+                ui.background.style.filter = 'blur(8px)';
+                ui.background.style.webkitFilter = 'blur(8px)';
+                ui.background.style.transform = 'scale(1.05)';
+            }
+            ui.arena.show();
+            ui.background.setBackgroundImage('image/background/' + lib.config.image_background + '.jpg');
+        }, time * 1000);
+    };
 
     var style = document.createElement('style');
                 style.innerHTML = "@keyframes fairy{"

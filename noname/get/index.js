@@ -57,11 +57,131 @@ export class Get {
 	 * @returns {import("../library/element/character").Character}
 	 */
 	convertedCharacter(data) {
-		// 临时修改（by 棘手怀念摧毁）
-		// if (!(data instanceof lib.element.Character)) {
-			// return new lib.element.Character(data);
-		// }
-		return data;
+		if (!data || typeof data != "object") {
+			return data;
+		}
+		if (data.__legacyCharacterCompat) {
+			return data;
+		}
+
+		const source = Array.isArray(data) ? null : data;
+		const tags = source ? [...(source.trashBin || [])] : Array.isArray(data[4]) ? data[4] : [];
+		const addTag = tag => {
+			if (tag && !tags.includes(tag)) tags.push(tag);
+		};
+
+		if (source) {
+			if (source.groupInGuozhan) addTag(`gzgroup:${source.groupInGuozhan}`);
+			if (source.junName) addTag(`junName:${source.junName}`);
+			if (source.skinPath) addTag(`skinPath:${source.skinPath}`);
+			if (source.isZhugong) addTag("zhu");
+			if (source.isUnseen) addTag("unseen");
+			if (source.isMinskin) addTag("minskin");
+			if (source.hasSkinInGuozhan) addTag("gzskin");
+			if (source.isBoss) addTag("boss");
+			if (source.isChessBoss) addTag("chessboss");
+			if (source.isJiangeBoss) addTag("jiangeboss");
+			if (source.isJiangeMech) addTag("jiangemech");
+			if (source.isBossAllowed) addTag("bossallowed");
+			if (source.isHiddenBoss) addTag("hiddenboss");
+			if (source.isAiForbidden) addTag("forbidai");
+			if (source.isFellowInStoneMode) addTag("stone");
+			if (source.isHiddenInStoneMode) addTag("stonehidden");
+			if (source.isSpecialInStoneMode) addTag("stonespecial");
+			if (source.hasHiddenSkill) addTag("hiddenSkill");
+			if (source.names || source.name) addTag(`name:${source.names || source.name}`);
+			if (source.groupBorder) addTag(`border:${source.groupBorder}`);
+			if (source.dualSideCharacter) addTag(`dualside:${source.dualSideCharacter}`);
+			if (source.doubleGroup?.length) addTag(`doublegroup:${source.doubleGroup.join(":")}`);
+			if (source.clans?.length) source.clans.forEach(clan => addTag(`clan:${clan}`));
+			if (source.initFilters?.length) addTag(`InitFilter:${source.initFilters.join(":")}`);
+			if (source.img) addTag(`img:${source.img}`);
+			const dieAudios = source.dieAudios || source.dieAudio;
+			if (dieAudios?.length) dieAudios.forEach(audio => addTag(`die:${audio}`));
+			if (source.tempname?.length) addTag(`tempname:${source.tempname.join(":")}`);
+		}
+
+		let character = data;
+		if (source) {
+			const hp = source.hp ?? 0;
+			const maxHp = source.maxHp ?? hp;
+			const hujia = source.hujia ?? 0;
+			const hpText = hujia > 0 ? `${hp}/${maxHp}/${hujia}` : hp !== maxHp ? `${hp}/${maxHp}` : hp;
+			character = [source.sex || "", source.group || "", hpText, source.skills || [], tags];
+			if (source.extraModeData !== undefined) character[5] = source.extraModeData;
+		}
+		if (!Array.isArray(character[3])) character[3] = [];
+		if (!Array.isArray(character[4])) character[4] = tags;
+
+		const hp = get.infoHp(character[2]);
+		const maxHp = get.infoMaxHp(character[2]) || hp;
+		const properties = {
+			sex: character[0],
+			group: character[1],
+			hp,
+			maxHp,
+			hujia: get.infoHujia(character[2]),
+			skills: character[3],
+			trashBin: character[4],
+			extraModeData: character[5],
+			groupInGuozhan: undefined,
+			groupBorder: undefined,
+			isZhugong: false,
+			isUnseen: false,
+			hasHiddenSkill: false,
+			isMinskin: false,
+			hasSkinInGuozhan: false,
+			isBoss: false,
+			isChessBoss: false,
+			isJiangeBoss: false,
+			isJiangeMech: false,
+			isBossAllowed: false,
+			isHiddenBoss: false,
+			isAiForbidden: false,
+			isFellowInStoneMode: false,
+			isHiddenInStoneMode: false,
+			isSpecialInStoneMode: false,
+			doubleGroup: [],
+			clans: [],
+			dieAudios: [],
+			initFilters: [],
+			tempname: [],
+		};
+		for (const tag of character[4]) {
+			if (typeof tag != "string") continue;
+			if (tag == "zhu") properties.isZhugong = true;
+			else if (tag == "unseen") properties.isUnseen = true;
+			else if (tag == "hiddenSkill") properties.hasHiddenSkill = true;
+			else if (tag == "minskin") properties.isMinskin = true;
+			else if (tag == "gzskin") properties.hasSkinInGuozhan = true;
+			else if (tag == "boss") properties.isBoss = true;
+			else if (tag == "chessboss") properties.isChessBoss = true;
+			else if (tag == "jiangeboss") properties.isJiangeBoss = true;
+			else if (tag == "jiangemech") properties.isJiangeMech = true;
+			else if (tag == "bossallowed") properties.isBossAllowed = true;
+			else if (tag == "hiddenboss") properties.isHiddenBoss = true;
+			else if (tag == "forbidai") properties.isAiForbidden = true;
+			else if (tag == "stone") properties.isFellowInStoneMode = true;
+			else if (tag == "stonehidden") properties.isHiddenInStoneMode = true;
+			else if (tag == "stonespecial") properties.isSpecialInStoneMode = true;
+			else if (tag.startsWith("name:")) properties.names = tag.slice(5);
+			else if (tag.startsWith("border:")) properties.groupBorder = tag.slice(7);
+			else if (tag.startsWith("dualside:")) properties.dualSideCharacter = tag.slice(9);
+			else if (tag.startsWith("gzgroup:")) properties.groupInGuozhan = tag.slice(8);
+			else if (tag.startsWith("doublegroup:")) properties.doubleGroup = tag.slice(12).split(":");
+			else if (tag.startsWith("clan:")) properties.clans.push(tag.slice(5));
+			else if (tag.startsWith("InitFilter:")) properties.initFilters = tag.slice(11).split(":");
+			else if (tag.startsWith("img:")) properties.img = tag.slice(4);
+			else if (tag.startsWith("die:")) properties.dieAudios.push(tag.slice(4));
+			else if (tag.startsWith("die_audio:")) properties.dieAudios.push(...tag.slice(10).split(":"));
+			else if (tag.startsWith("tempname:")) properties.tempname = tag.slice(9).split(":");
+			else if (tag.startsWith("junName:")) properties.junName = tag.slice(8);
+			else if (tag.startsWith("skinPath:")) properties.skinPath = tag.slice(9);
+		}
+		Object.assign(character, properties, source || {});
+		character.skills = character[3];
+		Object.defineProperty(character, "__legacyCharacterCompat", { value: true });
+		return character;
 	}
 	/**
 	 * 返回 VCard[] 形式的所有牌，用于印卡将遍历
@@ -2178,6 +2298,10 @@ export class Get {
 	}
 	infoFuncOL(info) {
 		let func;
+		// Legacy extensions expect this window global to remain available after
+		// their callbacks are serialized and rebuilt inside this ES module.
+		const decadeUI = window.decadeUI;
+		void decadeUI;
 		const str = info.slice(13).trim();
 		try {
 			// js内置的函数
@@ -3007,6 +3131,62 @@ export class Get {
 	/**
 	 * @returns {string}
 	 */
+	poptip(item) {
+		if (item && typeof item == "object") {
+			if (item.id && lib.poptip) lib.poptip[item.id] = item;
+			if (item.name) return item.name;
+			item = item.id;
+		}
+		if (typeof item != "string") return "";
+		if (lib.poptip && lib.poptip[item] && lib.poptip[item].name) return lib.poptip[item].name;
+		return get.translation(item);
+	}
+	Audio = {
+		skill: ({ skill, player, name } = {}) => {
+			const source = player || name;
+			const audioList =
+				typeof game.parseSkillAudio == "function" ? game.parseSkillAudio(skill, source) || [] : [];
+			return { audioList, textList: audioList };
+		},
+	};
+	addNewRowList(list, type, player) {
+		const groups = new Map();
+		for (const item of list || []) {
+			const key = typeof type == "function" ? type(item, player) : get[type]?.(item, player);
+			if (key == null) continue;
+			if (!groups.has(key)) groups.set(key, []);
+			groups.get(key).push(item);
+		}
+		return Array.from(groups.values());
+	}
+	bingzhu(card) {
+		return get.info(card, false)?.bingzhu || [];
+	}
+	cardTranslation(filter) {
+		return lib.inpile.filter((name) => !filter || filter(name)).map((name) => get.translation(name));
+	}
+	cardDescription(card) {
+		if (!card) return "";
+		const name = typeof card == "string" ? card : card.name;
+		return name ? `【${get.translation(name)}】` : "";
+	}
+	cardsetion(player) {
+		return (player?.getCards?.("h") || []).map((card) => get.translation(card)).join("、");
+	}
+	hpColor(target) {
+		const hp = target?.hp ?? 0;
+		const maxHp = target?.maxHp ?? target?.maxhp ?? 0;
+		if (hp <= 0) return "red";
+		if (maxHp > 0 && hp * 2 <= maxHp) return "red";
+		if (maxHp > 0 && hp * 2 <= maxHp * 3) return "yellow";
+		return "green";
+	}
+	characterTitle(name) {
+		return lib.characterTitle?.[name] || "";
+	}
+	situation() {
+		return 0;
+	}
 	translation(str, arg) {
 		if (str && typeof str == "object" && (str.name || str._tempTranslate)) {
 			if (str._tempTranslate) return str._tempTranslate;

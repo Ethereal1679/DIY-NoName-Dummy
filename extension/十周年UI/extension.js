@@ -15478,6 +15478,7 @@ if(!(lib.config.extensions.contains("手杀ui")&&lib.config.extension_手杀ui_e
 			// 挑战模式无座位号，本函数的座位号在关卡更新后/交换座位后会出错，介意的可临时注释掉此代码，待修复后再添加
 			game.bossPhaseLoop = function(){
 				game.broadcastAll(function(firstAction){
+					if (!window.decadeUI) return;
 					var cur;
 					for (var i = 0; i < game.players.length; i++) {
 						cur = game.players[i];
@@ -15491,6 +15492,7 @@ if(!(lib.config.extensions.contains("手杀ui")&&lib.config.extension_手杀ui_e
 			
 			game.phaseLoop = function(player){
 				game.broadcastAll(function(firstAction){
+					if (!window.decadeUI) return;
 					var cur;
 					for (var i = 0; i < game.players.length; i++) {
 						cur = game.players[i];

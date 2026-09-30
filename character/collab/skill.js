@@ -1,5 +1,25 @@
 import { lib, game, ui, get, ai, _status } from "noname";
 
+// Keep this character pack compatible with cores that do not provide zhanfa.
+const getZhanfaMap = () => {
+	const zhanfa = lib.zhanfa;
+	if (!zhanfa || typeof zhanfa.getList !== "function" || typeof zhanfa.getRarity !== "function") {
+		return null;
+	}
+	const list = zhanfa.getList();
+	if (!Array.isArray(list)) {
+		return null;
+	}
+	if (typeof Object.groupBy === "function") {
+		return Object.groupBy(list, id => zhanfa.getRarity(id, true));
+	}
+	return list.reduce((map, id) => {
+		const rarity = zhanfa.getRarity(id, true);
+		(map[rarity] ||= []).push(id);
+		return map;
+	}, {});
+};
+
 /** @type { importCharacterConfig["skill"] } */
 const skills = {
 	//OL牛马
@@ -1844,12 +1864,13 @@ const skills = {
 		forced: true,
 		//要自定义战法池子的可以改这个（）
 		zhanfaMap: (() => {
-			const list = lib.zhanfa.getList();
-			const map = Object.groupBy(list, i => lib.zhanfa.getRarity(i, true));
-			return map;
-		})(),
+			return getZhanfaMap();
+		}),
 		trigger: { global: ["roundStart", "roundEnd"] },
 		filter(event, player) {
+			if (!getZhanfaMap()) {
+				return false;
+			}
 			if (event.name == "phase") {
 				return game.roundNumber == 1;
 			}
@@ -1863,7 +1884,10 @@ const skills = {
 			const locals = targets.slice();
 			const humans = targets.filter(current => current === game.me || current.isOnline());
 			locals.removeArray(humans);
-			const map = get.info(event.name).zhanfaMap;
+			const map = get.info(event.name).zhanfaMap();
+			if (!map) {
+				return;
+			}
 			//分配好每个人的“商品”
 			const shopMap = new Map();
 			targets.forEach(target => {

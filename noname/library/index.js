@@ -77,6 +77,12 @@ export class Library {
 	);
 	characterFilter = {};
 	characterSort = {};
+	poptip = {
+		getInfo: (id) => {
+			const tip = this.poptip[id];
+			return tip && typeof tip.info == "string" ? tip.info : lib.translate[id + "_info"] || "";
+		},
+	};
 	characterReplace = {};
 	characterSubstitute = {};
 	characterInitFilter = {};

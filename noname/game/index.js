@@ -2056,6 +2056,11 @@ export class Game {
 			const promise = Promise.resolve(
 				(gnc.is.generator(content) ? gnc.of(content) : content)(lib, game, ui, get, ai, _status)
 			).then((content2) => {
+				if (type == "character" && content2.character) {
+					for (const name in content2.character) {
+						content2.character[name] = get.convertedCharacter(content2.character[name]);
+					}
+				}
 				if (content2.name) {
 					lib.imported[type][content2.name] = content2;
 					delete content2.name;

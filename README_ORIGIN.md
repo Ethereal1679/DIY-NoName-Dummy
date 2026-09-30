@@ -201,5 +201,8 @@ GitHub： https://github.com/libccy/noname/releases/tag/chromium77-client
   git config --global http.version HTTP/1.1
   git config --global http.lowSpeedLimit 0
   git config --global http.lowSpeedTime 999999
+  git config --global http.proxy http://127.0.0.1:7897
+  git config --global https.proxy http://127.0.0.1:7897
+  git config --global http.version HTTP/1.1
   git push -u origin $(git branch --show-current)
 ```
