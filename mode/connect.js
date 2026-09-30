@@ -4,6 +4,11 @@ game.import("mode", function (lib, game, ui, get, ai, _status) {
 		name: "connect",
 		start: function () {
 			var directstartmode = lib.config.directstartmode;
+			var removeNetworkInfo = function () {
+				if (!ui.networkInfo) return;
+				ui.networkInfo.remove();
+				delete ui.networkInfo;
+			};
 			ui.create.menu(true);
 			event.textnode = ui.create.div("", "输入联机地址");
 			var createNode = function () {
@@ -56,6 +61,7 @@ game.import("mode", function (lib, game, ui, get, ai, _status) {
 					game.saveConfig("last_ip", node.textContent);
 					game.connect(node.textContent, function (success) {
 						if (success) {
+							removeNetworkInfo();
 							var info = lib.config.reconnect_info;
 							if (info && info[0] == _status.ip) {
 								game.onlineID = info[1];
@@ -125,7 +131,30 @@ game.import("mode", function (lib, game, ui, get, ai, _status) {
 				networkTitle.style.fontSize = "20px";
 				networkTitle.style.textAlign = "center";
 				networkTitle.style.marginBottom = "3px";
+				networkTitle.style.padding = "0 34px";
+				networkTitle.style.boxSizing = "border-box";
 				networkInfo.appendChild(networkTitle);
+
+				var refreshButton = document.createElement("button");
+				refreshButton.type = "button";
+				refreshButton.textContent = "↻";
+				refreshButton.title = "刷新 IP";
+				refreshButton.setAttribute("aria-label", "刷新 IP");
+				refreshButton.style.position = "absolute";
+				refreshButton.style.top = "-2px";
+				refreshButton.style.right = "0";
+				refreshButton.style.width = "28px";
+				refreshButton.style.height = "28px";
+				refreshButton.style.padding = "0";
+				refreshButton.style.border = "1px solid rgba(255, 255, 255, 0.45)";
+				refreshButton.style.borderRadius = "4px";
+				refreshButton.style.background = "rgba(0, 0, 0, 0.22)";
+				refreshButton.style.color = "white";
+				refreshButton.style.fontFamily = "sans-serif";
+				refreshButton.style.fontSize = "20px";
+				refreshButton.style.lineHeight = "24px";
+				refreshButton.style.cursor = "pointer";
+				networkTitle.appendChild(refreshButton);
 
 				var networkDetails = document.createElement("div");
 				networkDetails.textContent = "正在检测局域网 IPv4...";
@@ -135,37 +164,60 @@ game.import("mode", function (lib, game, ui, get, ai, _status) {
 				ui.window.appendChild(networkInfo);
 				ui.networkInfo = networkInfo;
 
-				fetch("/networkInfo", { cache: "no-store" })
-					.then(function (response) {
-						if (!response.ok) throw new Error("HTTP " + response.status);
-						return response.json();
-					})
-					.then(function (result) {
-						var info = result && result.success && result.data;
-						if (!info || !info.preferredAddress) throw new Error("No LAN IPv4 address");
-						var addressList = info.addresses.map(function (item) {
-							return item.address;
+				var refreshNetworkInfo = function () {
+					refreshButton.disabled = true;
+					refreshButton.style.opacity = "0.55";
+					refreshButton.style.cursor = "wait";
+					networkDetails.textContent = "正在检测局域网 IPv4...";
+					fetch("/networkInfo?t=" + Date.now(), { cache: "no-store" })
+						.then(function (response) {
+							if (!response.ok) throw new Error("HTTP " + response.status);
+							return response.json();
+						})
+						.then(function (result) {
+							if (ui.networkInfo !== networkInfo) return;
+							var info = result && result.success && result.data;
+							var remoteAddress = info && (info.zeroTierAddress || info.preferredAddress);
+							if (!remoteAddress) throw new Error("No LAN IPv4 address");
+							var addresses = Array.isArray(info.addresses) ? info.addresses : [];
+							var lanAddresses = addresses
+								.filter(function (item) {
+									return !item.isZeroTier && item.address != info.zeroTierAddress;
+								})
+								.map(function (item) {
+									return item.address;
+								});
+							networkDetails.textContent =
+								"局域网 IPv4：" +
+								(lanAddresses.length ? lanAddresses.join(" / ") : "未检测到") +
+								(info.zeroTierAddress ? "\nZeroTier IPv4：" + info.zeroTierAddress : "") +
+								"\n其他电脑打开：http://" +
+								remoteAddress +
+								":" +
+								info.webPort +
+								"\n联机地址：" +
+								remoteAddress +
+								":" +
+								info.multiplayerPort;
+							networkDetails.style.whiteSpace = "pre-line";
+						})
+						.catch(function () {
+							if (ui.networkInfo !== networkInfo) return;
+							networkDetails.textContent = "未检测到局域网 IPv4，请确认已连接 Wi-Fi 或网线。";
+						})
+						.then(function () {
+							if (ui.networkInfo !== networkInfo) return;
+							refreshButton.disabled = false;
+							refreshButton.style.opacity = "1";
+							refreshButton.style.cursor = "pointer";
 						});
-						var remoteAddress = info.zeroTierAddress || info.preferredAddress;
-						networkDetails.textContent =
-							"局域网 IPv4：" +
-							addressList.filter(function (address) {
-								return address != info.zeroTierAddress;
-							}).join(" / ") +
-							(info.zeroTierAddress ? "\nZeroTier IPv4：" + info.zeroTierAddress : "") +
-							"\n其他电脑打开：http://" +
-							remoteAddress +
-							":" +
-							info.webPort +
-							"\n联机地址：" +
-							remoteAddress +
-							":" +
-							info.multiplayerPort;
-						networkDetails.style.whiteSpace = "pre-line";
-					})
-					.catch(function () {
-						networkDetails.textContent = "未检测到局域网 IPv4，请确认已连接 Wi-Fi 或网线。";
-					});
+				};
+				refreshButton.addEventListener("click", function (event) {
+					event.preventDefault();
+					event.stopPropagation();
+					refreshNetworkInfo();
+				});
+				refreshNetworkInfo();
 
 				ui.hall_button = ui.create.system(
 					"联机大厅",
@@ -226,6 +278,7 @@ game.import("mode", function (lib, game, ui, get, ai, _status) {
 								clearTimeout(event.timeout);
 								game.saveConfig("last_ip", node.innerHTML);
 								game.connect(node.innerHTML, function (success) {
+									if (success) removeNetworkInfo();
 									if (!success && event.textnode) {
 										alert("邀请链接解析失败");
 										event.textnode.innerHTML = "输入联机地址";

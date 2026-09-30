@@ -44,11 +44,12 @@ if not defined PKG_CMD if exist "%APPDATA%\npm\pnpm.cmd" (
     set "PKG_LABEL=pnpm"
 )
 if not defined PKG_CMD (
-    where.exe npm.cmd >nul 2>&1
-    if not errorlevel 1 (
-        set "PKG_CMD=npm.cmd"
-        set "PKG_LABEL=npm"
-        set "PKG_INSTALL_ARGS=--no-audit --no-fund --package-lock=false --fetch-timeout=30000 --fetch-retries=1"
+    for /f "delims=" %%I in ('where.exe npm.cmd 2^>nul') do (
+        if not defined PKG_CMD (
+            set "PKG_CMD=%%~fI"
+            set "PKG_LABEL=npm"
+            set "PKG_INSTALL_ARGS=--no-audit --no-fund --package-lock=false --fetch-timeout=30000 --fetch-retries=1"
+        )
     )
 )
 if not defined PKG_CMD (
