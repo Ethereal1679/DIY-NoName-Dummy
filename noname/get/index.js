@@ -5606,15 +5606,17 @@ export class Get {
 	result(item, skill) {
 		var result;
 		var info = get.info(item);
-		if (info.ai) result = get.copy(info.ai.result);
+		if (info && info.ai) result = get.copy(info.ai.result);
 		if (typeof result == "function") result = result(item);
 		if (!result) result = {};
 		if (skill) {
 			var info2 = get.info(skill);
-			if (info2.ai) {
+			if (info2 && info2.ai) {
 				info2 = info2.ai.result;
-				for (var i in info2) {
-					result[i] = info2[i];
+				if (info2) {
+					for (var i in info2) {
+						result[i] = info2[i];
+					}
 				}
 			}
 		}

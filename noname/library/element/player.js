@@ -135,6 +135,7 @@ export class Player extends HTMLDivElement {
 			{
 				card: {},
 				skill: {},
+				triggerSkill: {},
 			},
 		];
 		player.actionHistory = [
@@ -167,6 +168,8 @@ export class Player extends HTMLDivElement {
 		};
 		player.queueCount = 0;
 		player.outCount = 0;
+		player.extraEquip = [];
+		player.vcardsMap = { handcards: [], equips: [], judges: [] };
 	}
 	buildEventListener(noclick) {
 		let player = this;
@@ -4068,6 +4071,9 @@ export class Player extends HTMLDivElement {
 			count++;
 		}
 		return count;
+	}
+	hasCards(arg1 = "h", arg2) {
+		return this.countCards(arg1, arg2) > 0;
 	}
 	getCardIndex(arg1, name, card, max) {
 		let count = 0;
@@ -11818,8 +11824,536 @@ export class Player extends HTMLDivElement {
 	}
 }
 
+// Small compatibility layer for skills written against the newer Player API.
+const legacyAddShownCards = Player.prototype.addShownCards;
+const legacyHideShownCards = Player.prototype.hideShownCards;
+const legacyGetDiscardableCards = Player.prototype.getDiscardableCards;
+const legacyGetGainableCards = Player.prototype.getGainableCards;
+const compatVCardMap = player => (player.vcardsMap ||= { handcards: [], equips: [], judges: [] });
+const compatFilter = (card, filter) => {
+	if (!filter) return true;
+	if (typeof filter == "function") return filter(card);
+	const name = get.name(card, false);
+	if (typeof filter == "string") return name == filter;
+	if (Array.isArray(filter)) return filter.includes(name);
+	return Object.keys(filter).every(key => {
+		const value = ["type", "subtype", "color", "suit", "number"].includes(key) ? get[key](card) : key == "name" ? name : card[key];
+		return Array.isArray(filter[key]) ? filter[key].includes(value) : value == filter[key];
+	});
+};
+const compatEventCards = (args, fallback) => {
+	let cards;
+	for (const arg of args) {
+		if (get.itemtype(arg) == "cards") cards = arg;
+		else if (get.itemtype(arg) == "card") cards = [arg];
+	}
+	return cards || fallback;
+};
+const compatCardQuery = (self, args) => {
+	let [player, position, filter] = args;
+	if (get.itemtype(player) != "player") {
+		if (get.itemtype(position) == "player") [player, position] = [position, player];
+		else [player, position, filter] = [self, player, position];
+	}
+	return [player, position, filter];
+};
+
+Object.assign(Player.prototype, {
+	addShownCards(params) {
+		if (arguments.length == 1 && params && typeof params == "object" && !Array.isArray(params) && get.itemtype(params) == null && "cards" in params) {
+			const tags = Array.isArray(params.gaintag) ? params.gaintag : [params.gaintag];
+			return legacyAddShownCards.call(this, params.cards, ...tags.filter(Boolean));
+		}
+		return legacyAddShownCards.apply(this, arguments);
+	},
+	hideShownCards(params) {
+		if (arguments.length == 1 && params && typeof params == "object" && !Array.isArray(params) && get.itemtype(params) == null && "cards" in params) {
+			const tags = Array.isArray(params.gaintag) ? params.gaintag : [params.gaintag];
+			return legacyHideShownCards.call(this, params.cards, ...tags.filter(Boolean));
+		}
+		return legacyHideShownCards.apply(this, arguments);
+	},
+	addExtraEquip(skill, equip, replace = false, preserve) {
+		this.extraEquip ||= [];
+		if (replace) this.removeExtraEquip(skill);
+		const list = (Array.isArray(equip) ? equip : [equip]).filter(Boolean).map(card => [skill, card, preserve]);
+		this.extraEquip.push(...list);
+		this.$handleEquipChange?.();
+		game.broadcast?.((player, list) => {
+			player.extraEquip ||= [];
+			player.extraEquip.push(...list);
+			player.$handleEquipChange?.();
+		}, this, list);
+	},
+	removeExtraEquip(skill, equip = "noequip") {
+		this.extraEquip ||= [];
+		const names = equip == "noequip" ? null : (Array.isArray(equip) ? equip : [equip]);
+		this.extraEquip = this.extraEquip.filter(info => info[0] != skill || (names && !names.includes(info[1])));
+		this.$handleEquipChange?.();
+		game.broadcast?.((player, extraEquip) => {
+			player.extraEquip = extraEquip;
+			player.$handleEquipChange?.();
+		}, this, this.extraEquip);
+	},
+	hasZhanfa(id) {
+		return this.getStorage("zhanfa").includes(id);
+	},
+	addZhanfa(id) {
+		const skill = lib.zhanfa?.getSkill?.(id);
+		if (!skill || this.hasZhanfa(id)) return;
+		if (game.createCard && this.$draw) this.$draw(game.createCard(id, "战法", ""), void 0, void 0, false);
+		this.addAdditionalSkill("zhanfa", skill, true);
+		this.markAuto("zhanfa", id);
+		const next = game.createEvent("addZhanfa", false, get.event?.());
+		next.player = this;
+		next.zhanfaId = id;
+		next.forceDie = true;
+		next.includeOut = true;
+		next.setContent(async event => event.trigger(event.name));
+		next._args = Array.from(arguments);
+	},
+	removeZhanfa(id) {
+		const skill = lib.zhanfa?.getSkill?.(id);
+		if (!skill || !this.hasZhanfa(id)) return;
+		if (game.createCard && this.$throw) this.$throw(game.createCard(id, "战法", ""), 1000, void 0, void 0, false);
+		this.removeAdditionalSkill("zhanfa", skill);
+		this.unmarkAuto("zhanfa", id);
+		const next = game.createEvent("removeZhanfa", false, get.event?.());
+		next.player = this;
+		next.zhanfaId = id;
+		next.forceDie = true;
+		next.includeOut = true;
+		next.setContent(async event => event.trigger(event.name));
+		next._args = Array.from(arguments);
+	},
+	canRespond(event, card, type) {
+		const current = event?.name == "useCard" ? event : event?.getParent?.("useCard") || event;
+		if (!current?.card || current.directHit?.includes?.(this)) return;
+		const cards = this.getCards("hs");
+		if (card) {
+			const name = typeof card == "string" ? card : get.name(card, this);
+			return cards.some(item => {
+				if (get.name(item, this) != name) return false;
+				const use = lib.filter.cardEnabled(item, this, current);
+				const respond = lib.filter.cardRespondable(item, this, current);
+				return type == "respond" ? respond : type == "all" || type === true ? use || respond : use;
+			});
+		}
+		return cards.some(item => {
+			if (type == "all" || type === true) return lib.filter.cardEnabled(item, this, current) || lib.filter.cardRespondable(item, this, current);
+			return type == "respond" ? lib.filter.cardRespondable(item, this, current) : lib.filter.cardEnabled(item, this, current);
+		});
+	},
+	getHiddenSkills(unowned, unique) {
+		return this.getStockSkills(unowned, unique, true).removeArray(this.getStockSkills(unowned, unique));
+	},
+	addTip(index, message, isTemp = false, css = {}, nobroadcast) {
+		if (this.getHiddenSkills(true, true).includes(index)) return;
+		const add = (player, key, text, style) => {
+			player.node.tipContainer ||= ui.create.div(".tipContainer", player);
+			player.tips ||= new Map();
+			if (!player.tips.has(key)) player.tips.set(key, ui.create.div(".tip", player.node.tipContainer));
+			player.tips.get(key).innerHTML = String(text).replace(/ /g, "&nbsp;").replace(/\n/g, "<br>");
+			player.tips.get(key).css(style);
+		};
+		add(this, index, message, css);
+		if (!nobroadcast) game.broadcast?.(add, this, index, message, css);
+		if (isTemp && !this.storage[`temp_tip_${index}`]) {
+			this.storage[`temp_tip_${index}`] = true;
+			const expire = isTemp === true ? { global: ["phaseAfter", "phaseBeforeStart"] } : { global: isTemp };
+			this.when(expire, false).assign({ firstDo: true, priority: Infinity }).step((event, trigger, player) => {
+				delete player.storage[`temp_tip_${index}`];
+				player.removeTip(index);
+			}).finish();
+		}
+	},
+	removeTip(index) {
+		const remove = (player, key) => {
+			if (key == null) player.tips?.forEach(tip => tip.remove());
+			else if (player.tips?.has(key)) {
+				player.tips.get(key).remove();
+				player.tips.delete(key);
+			}
+			if (!player.tips?.size) {
+				player.node.tipContainer?.remove();
+				delete player.node.tipContainer;
+				delete player.tips;
+			}
+		};
+		remove(this, index);
+		game.broadcast?.(remove, this, index);
+	},
+	connectCards(params) {
+		const next = game.createEvent("connectCards");
+		next.player = this;
+		const args = Array.from(arguments);
+		if (args.length == 1 && params && typeof params == "object" && !Array.isArray(params) && get.itemtype(params) == null) Object.assign(next, params);
+		else for (const arg of args) {
+			if (get.itemtype(arg) == "player") next.source = arg;
+			else if (typeof arg == "boolean") next.log = arg;
+		}
+		next.cards = compatEventCards(args, next.cards || this.getCards("h"));
+		if (!Array.isArray(next.cards)) next.cards = next.cards ? [next.cards] : [];
+		next.source ||= _status.event?.player || this;
+		next.log ??= true;
+		if (!next.cards.length) {
+			_status.event?.next?.remove?.(next);
+			next.resolve?.();
+		}
+		next.setContent(async event => {
+			for (const card of event.cards || []) {
+				card.connected = true;
+				card._connected = true;
+				card.connectedSource = event.source;
+			}
+		});
+		next._args = args;
+		return next;
+	},
+	resetConnectedCards(params) {
+		const next = game.createEvent("resetConnectedCards");
+		next.player = this;
+		const args = Array.from(arguments);
+		if (args.length == 1 && params && typeof params == "object" && !Array.isArray(params) && get.itemtype(params) == null) Object.assign(next, params);
+		else for (const arg of args) {
+			if (get.itemtype(arg) == "player") next.source = arg;
+			else if (typeof arg == "boolean") next.log = arg;
+		}
+		next.cards = compatEventCards(args, next.cards || this.getConnectedCards());
+		if (!Array.isArray(next.cards)) next.cards = next.cards ? [next.cards] : [];
+		next.log ??= true;
+		if (!next.cards.length) {
+			_status.event?.next?.remove?.(next);
+			next.resolve?.();
+		}
+		next.setContent(async event => {
+			for (const card of event.cards || []) {
+				delete card.connected;
+				delete card._connected;
+				delete card.connectedSource;
+			}
+		});
+		next._args = args;
+		return next;
+	},
+	*iterableGetConnectedCards() {
+		for (const card of this.getCards("h")) if (get.is.connectedCard(card)) yield card;
+	},
+	getConnectedCards() {
+		return Array.from(this.iterableGetConnectedCards());
+	},
+	countConnectedCards() {
+		return this.getConnectedCards().length;
+	},
+	hasConnectedCards() {
+		return this.getConnectedCards().length > 0;
+	},
+	countShownCards() {
+		return this.getShownCards().length;
+	},
+	hasShownCards() {
+		return this.getShownCards().length > 0;
+	},
+	getClans(unseen) {
+		const clans = [];
+		for (const name of [this.name1 || this.name, this.name2]) {
+			if (name && (unseen || !this.isUnseen?.(name == this.name2 ? 1 : 0))) clans.addArray(lib.character[name]?.clans || []);
+		}
+		return clans;
+	},
+	countRoundHistory(key, filter, num, keep, last) {
+		return this.getRoundHistory(key, filter, num, keep, last).length;
+	},
+	hasRoundHistory(key, filter, num, keep, last) {
+		return this.countRoundHistory(key, filter, num, keep, last) > 0;
+	},
+	countHistory(key, filter, last) {
+		return (this.getHistory(key, filter, last) || []).length;
+	},
+	countLastHistory(key, filter, last) {
+		const history = this.getLastHistory(key) || [];
+		if (!Array.isArray(history)) return 0;
+		const end = last == null ? history.length - 1 : history.indexOf(last);
+		return end < 0 ? 0 : history.slice(0, end + 1).filter(filter || lib.filter.all).length;
+	},
+	hasLastHistory(key, filter, last) {
+		return this.countLastHistory(key, filter, last) > 0;
+	},
+	countAllHistory(key, filter, last) {
+		return (this.getAllHistory(key, filter, last) || []).length;
+	},
+	isRest() {
+		return this.isAlive() && this.isOut() && !!_status._rest_return?.[this.playerid];
+	},
+	isMaxMaxHp(only, filter = lib.filter.all) {
+		return game.filterPlayer(filter).every(player => player.isOut() || player == this || (only ? player.maxHp < this.maxHp : player.maxHp <= this.maxHp));
+	},
+	isMinMaxHp(only, filter = lib.filter.all) {
+		return game.filterPlayer(filter).every(player => player.isOut() || player == this || (only ? player.maxHp > this.maxHp : player.maxHp >= this.maxHp));
+	},
+	getDiscardableCards(player, position, filter) {
+		[player, position, filter] = compatCardQuery(this, arguments);
+		return legacyGetDiscardableCards.call(this, player, position, filter);
+	},
+	getGainableCards(player, position, filter) {
+		[player, position, filter] = compatCardQuery(this, arguments);
+		return legacyGetGainableCards.call(this, player, position, filter);
+	},
+	countDiscardableCards(player, position, filter) {
+		[player, position, filter] = compatCardQuery(this, arguments);
+		return legacyGetDiscardableCards.call(this, player, position, filter).length;
+	},
+	countGainableCards(player, position, filter) {
+		[player, position, filter] = compatCardQuery(this, arguments);
+		return legacyGetGainableCards.call(this, player, position, filter).length;
+	},
+	hasDiscardableCards(player, position, filter) {
+		return this.countDiscardableCards(player, position, filter) > 0;
+	},
+	hasGainableCards(player, position, filter) {
+		return this.countGainableCards(player, position, filter) > 0;
+	},
+	*iterableGetVCards(position = "h", filter) {
+		if (typeof position != "string") {
+			filter = position;
+			position = "h";
+		}
+		const map = compatVCardMap(this);
+		for (const key of position) {
+			const list = key == "h" ? map.handcards : key == "e" ? map.equips : key == "j" ? map.judges : [];
+			for (const card of list) if (compatFilter(card, filter)) yield card;
+		}
+	},
+	getVCards(position = "h", filter) {
+		return Array.from(this.iterableGetVCards(position, filter));
+	},
+	countVCards(position = "h", filter) {
+		return this.getVCards(position, filter).length;
+	},
+	hasVCard(name, position) {
+		return this.countVCards(position, typeof name == "function" ? name : name) > 0;
+	},
+	getVEquips(name) {
+		if (name == null) return [];
+		if (name == "equip3_4") return this.getVCards("e", card => ["equip3", "equip4"].some(type => (get.subtypes(card, false) || []).includes(type)));
+		if (typeof name == "number" || (typeof name == "string" && /^equip[1-6]$/.test(name))) {
+			const subtype = typeof name == "number" ? `equip${name}` : name;
+			return this.getVCards("e", card => (get.subtypes(card, false) || []).includes(subtype));
+		}
+		return this.getVCards("e", typeof name == "string" ? { name } : card => get.subtype(card, false) == get.subtype(name, false));
+	},
+	getVEquip(name) {
+		return this.getVEquips(name)[0] || null;
+	},
+	getVJudge(name) {
+		return name == null ? null : this.getVCards("j", { name })[0] || null;
+	},
+	addVirtualEquip(card, cards = []) {
+		cards = Array.isArray(cards) ? cards : [cards];
+		const vcard = card?.isViewAsCard ? card[card.cardSymbol] || card : get.autoViewAs(typeof card == "string" ? { name: card } : card, cards);
+		compatVCardMap(this).equips.push(vcard);
+		game.broadcast?.((player, card) => {
+			player.vcardsMap ||= { handcards: [], equips: [], judges: [] };
+			player.vcardsMap.equips.push(card);
+			player.addEquipTrigger?.(card);
+		}, this, vcard);
+		this.$addVirtualEquip(vcard, cards);
+		this.addEquipTrigger?.(vcard);
+		return vcard;
+	},
+	$addVirtualJudge(card, cards = []) {
+		return this.addJudge(card, cards);
+	},
+	addVirtualJudge(card, cards = []) {
+		cards = Array.isArray(cards) ? cards : [cards];
+		const vcard = card?.isViewAsCard ? card[card.cardSymbol] || card : get.autoViewAs(typeof card == "string" ? { name: card } : card, cards);
+		compatVCardMap(this).judges.push(vcard);
+		game.broadcast?.((player, card) => {
+			player.vcardsMap ||= { handcards: [], equips: [], judges: [] };
+			player.vcardsMap.judges.push(card);
+		}, this, vcard);
+		return this.addJudge(vcard, cards);
+	},
+	removeVirtualEquip(card) {
+		const map = compatVCardMap(this).equips;
+		const target = card?.[card.cardSymbol] || card;
+		const index = map.indexOf(target);
+		if (index >= 0) map.splice(index, 1);
+		game.broadcast?.((player, target) => {
+			const list = player.vcardsMap?.equips || [];
+			const index = list.indexOf(target);
+			if (index >= 0) list.splice(index, 1);
+		}, this, card);
+		for (const node of Array.from(this.node?.equips?.childNodes || [])) {
+			if (node[node.cardSymbol] === target || node.viewAs == target?.name) node.parentNode.removeChild(node);
+		}
+		this.removeEquipTrigger?.(target, true);
+		this.$handleEquipChange?.();
+	},
+	removeVirtualJudge(card) {
+		const map = compatVCardMap(this).judges;
+		const target = card?.[card.cardSymbol] || card;
+		const index = map.indexOf(target);
+		if (index >= 0) map.splice(index, 1);
+		game.broadcast?.((player, target) => {
+			const list = player.vcardsMap?.judges || [];
+			const index = list.indexOf(target);
+			if (index >= 0) list.splice(index, 1);
+		}, this, card);
+		for (const node of Array.from(this.node?.judges?.childNodes || [])) {
+			if (node[node.cardSymbol] === target || node.viewAs == target?.name) node.parentNode.removeChild(node);
+		}
+		ui.updatej?.(this);
+	},
+	chooseButtonTarget(params = {}) {
+		const next = game.createEvent("chooseButtonTarget");
+		next.player = this;
+		Object.assign(next, params || {});
+		if (typeof next.filterButton == "object") next.filterButton = get.filter(next.filterButton);
+		if (typeof next.filterTarget == "object") next.filterTarget = get.filter(next.filterTarget, 2);
+		next.filterButton = next.filterButton == null || next.filterButton === true ? lib.filter.filterButton : next.filterButton;
+		next.filterTarget = next.filterTarget == null || next.filterTarget === true ? lib.filter.all : next.filterTarget;
+		next.selectButton ??= 1;
+		next.selectTarget ??= 1;
+		next.ai1 ??= () => 1;
+		next.ai2 ??= get.attitude2;
+		next.canHidden ??= true;
+		next.setContent(async event => {
+			const copy = (child, keys) => keys.forEach(key => {
+				if (event[key] !== undefined) child[key] = event[key];
+			});
+			const keys = Object.keys(params || {}).concat(["targets", "target", "num", "goon", "drawMap", "targetx", "filterOk"]);
+			const button = game.createEvent("chooseButton");
+			button.player = event.player;
+			copy(button, keys);
+			button.ai = event.ai1;
+			button.setContent("chooseButton");
+			const buttonResult = await button.forResult();
+			if (!buttonResult?.bool) {
+				event.result = buttonResult || { bool: false };
+				return;
+			}
+			const buttons = buttonResult.buttons || buttonResult.button?.[0] || [];
+			if (ui.selected) ui.selected.buttons = buttons;
+			const target = game.createEvent("chooseTarget");
+			target.player = event.player;
+			copy(target, keys);
+			target.filterTarget = event.filterTarget;
+			target.selectTarget = event.selectTarget;
+			target.ai = event.ai2;
+			target.forced = event.forced;
+			target.prompt = false;
+			target.createDialog = null;
+			target.dialog = null;
+			target.setContent("chooseTarget");
+			const targetResult = await target.forResult();
+			event.result = { ...buttonResult, ...targetResult, buttons };
+		});
+		next._args = Array.from(arguments);
+		return next;
+	},
+	rest(restMap = { type: "phase", count: -1 }) {
+		const next = game.createEvent("rest", false);
+		next.player = this;
+		next.restMap = restMap;
+		next.forceDie = true;
+		next.includeOut = true;
+		next.setContent(async event => {
+			_status._rest_return ||= {};
+			_status._rest_return[event.player.playerid] = event.restMap;
+			event.trigger(event.name);
+			event.player.out();
+		});
+		next._args = Array.from(arguments);
+		return next;
+	},
+	restEnd(restEndMap = { hp: null }) {
+		restEndMap = { ...restEndMap };
+		restEndMap.hp ??= this.maxHp;
+		const next = game.createEvent("restEnd", false);
+		next.player = this;
+		next.restEndMap = restEndMap;
+		next.forceDie = true;
+		next.includeOut = true;
+		next.setContent(async event => {
+			const player = event.player;
+			delete _status._rest_return?.[player.playerid];
+			player.in();
+			if (event.restEndMap.hp != null) player.hp = event.restEndMap.hp;
+			player.update();
+			event.trigger(event.name);
+		});
+		next._args = Array.from(arguments);
+		return next;
+	},
+	reviveEvent(hp = 1, log) {
+		const next = game.createEvent("revive", false);
+		next.player = this;
+		next.hp = hp;
+		next.log = log;
+		next.forceDie = true;
+		next.setContent(async event => event.player.revive(event.hp, event.log));
+		next._args = Array.from(arguments);
+		return next;
+	},
+	localMarkSkill(skill, target, event) {
+		const mark = (name, player) => {
+			if (player.marks[name]) player.updateMarks();
+			const info = lib.skill[name]?.intro;
+			if (!info) return;
+			if (player.marks[name]) player.marks[name].info = info;
+			else player.marks[name] = player.mark(name, info);
+			player.updateMarks();
+		};
+		if (event?.player == game.me) mark(skill, target);
+		else if (event?.isOnline?.()) this.send?.(mark, skill, target);
+	},
+	refreshSkill(skills) {
+		if (!skills) skills = game.expandSkills(this.getStockSkills(true, true));
+		if (typeof skills == "string") skills = [skills];
+		if (!Array.isArray(skills)) return [];
+		const reset = [];
+		for (const skill of skills) {
+			const info = get.info(skill);
+			const stat = this.getStat() || {};
+			if (info?.usable) {
+				for (const key of ["triggerSkill", "skill"]) if (typeof stat[key]?.[skill] == "number") {
+					delete stat[key][skill];
+					reset.add(skill);
+				}
+			}
+			if (this.storage[skill + "_roundcount"]) {
+				delete this.storage[skill + "_roundcount"];
+				this.unmarkSkill(skill + "_roundcount");
+				reset.add(skill);
+			}
+			if (this.storage[`temp_ban_${skill}`]) {
+				delete this.storage[`temp_ban_${skill}`];
+				reset.add(skill);
+			}
+			if (this.awakenedSkills.includes(skill)) {
+				this.restoreSkill(skill);
+				reset.add(skill);
+			}
+			for (const suffix of ["used", "round", "block", "blocker", "sunben"])
+				if (this.hasSkill(skill + "_" + suffix)) {
+					this.removeSkill(skill + "_" + suffix);
+					reset.add(skill);
+				}
+		}
+		return reset;
+	},
+	awakenQidingSkill(skill) {
+		if (this.storage[skill]) return;
+		this.storage[skill] = true;
+		_status.event?.clearStepCache?.();
+		return this;
+	},
+});
+
 CacheContext.inject(Player.prototype, [
 	"hasCard",
+	"hasCards",
 	"hasValueTarget",
 	"getModableSkills",
 	"getCardIndex",

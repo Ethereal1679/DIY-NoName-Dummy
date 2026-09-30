@@ -163,6 +163,9 @@ export class Is {
 		const gaintag = card.gaintag;
 		return Array.isArray(gaintag) && gaintag.some((tag) => tag.startsWith("visible_"));
 	}
+	connectedCard(card) {
+		return !!(card?.connected || card?._connected);
+	}
 	/**
 	 * 是否是虚拟牌
 	 * @param { Card | VCard } card
