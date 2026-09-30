@@ -1925,6 +1925,88 @@ export class Player extends HTMLDivElement {
 		};
 		return next;
 	}
+	chooseToMove_new(params) {
+		var next = game.createEvent("chooseToMove_new");
+		next.player = this;
+
+		// Newer character packs group several move areas into one visual row.
+		// The legacy dialog can operate on the same areas after flattening them.
+		Object.defineProperties(next, {
+			list: {
+				configurable: true,
+				enumerable: true,
+				get() {
+					return this._chooseToMoveNewFlatList || [];
+				},
+				set(value) {
+					this._chooseToMoveNewList = Array.isArray(value) ? value : [];
+					this._chooseToMoveNewFlatList = [];
+					for (const item of this._chooseToMoveNewList) {
+						if (Array.isArray(item) && Array.isArray(item[0])) {
+							this._chooseToMoveNewFlatList.push(...item);
+						} else {
+							this._chooseToMoveNewFlatList.push(item);
+						}
+					}
+				},
+			},
+			filterMove: {
+				configurable: true,
+				enumerable: true,
+				get() {
+					const filterMove = this._chooseToMoveNewFilterMove;
+					if (typeof filterMove != "function") return filterMove;
+					return function (from, to, moved) {
+						// The old dialog reports card-to-card swaps in the opposite order.
+						if (typeof to != "number" && from?.link && to?.link) {
+							return filterMove.call(this, to, from, moved);
+						}
+						return filterMove.call(this, from, to, moved);
+					};
+				},
+				set(value) {
+					this._chooseToMoveNewFilterMove = value;
+				},
+			},
+			processAI: {
+				configurable: true,
+				enumerable: true,
+				get() {
+					const processAI = this._chooseToMoveNewProcessAI;
+					if (typeof processAI != "function") return processAI;
+					const list = this._chooseToMoveNewList;
+					return function () {
+						return processAI.call(this, list);
+					};
+				},
+				set(value) {
+					this._chooseToMoveNewProcessAI = value;
+				},
+			},
+		});
+
+		const args = Array.from(arguments);
+		if (args.length == 1 && params && typeof params == "object" && !Array.isArray(params)) {
+			Object.assign(next, params);
+		} else {
+			for (const arg of args) {
+				if (typeof arg == "boolean") {
+					next.forced = arg;
+				} else if (typeof arg == "string") {
+					next.prompt = arg;
+				}
+			}
+		}
+		next.setContent("chooseToMove");
+		next.filterOk ??= function () {
+			return true;
+		};
+		next.filterMove ??= function () {
+			return true;
+		};
+		next._args = args;
+		return next;
+	}
 	chooseToGuanxing(num) {
 		var next = game.createEvent("chooseToGuanxing");
 		next.num = num || 1;

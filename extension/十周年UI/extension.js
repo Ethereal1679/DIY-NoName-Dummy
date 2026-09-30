@@ -11911,7 +11911,7 @@ content:function(config, pack){
 			lib.skill.dragjuesui.subSkill.wusheng.marktext = "玦碎";
 		}
 		// 谋姜维北伐标记修改
-		if(lib.skill.sbzhiji != undefined){
+		if(lib.skill.sbzhiji != undefined && lib.skill.sbzhiji.subSkill != undefined && lib.skill.sbzhiji.subSkill.beifa != undefined){
 			lib.skill.sbzhiji.subSkill.beifa.marktext = "北伐";
 		}
 		// OL谋姜维逐日标记修改
@@ -11988,7 +11988,8 @@ content:function(config, pack){
 		}
 		// 承甄宓济乡标记修改
 		if(lib.skill.jsrgjixiang != undefined){
-			lib.skill.jsrgjixiang.subSkill.used.marktext = "济乡";
+			const jixiangMark = lib.skill.jsrgjixiang.subSkill?.used || lib.skill.jsrgjixiang.subSkill?.record;
+			if(jixiangMark != undefined) jixiangMark.marktext = "济乡";
 		}
 		// 转范疆张达负山标记修改
 		if(lib.skill.jsrgfushan != undefined){
@@ -12279,7 +12280,7 @@ content:function(config, pack){
 		if(lib.skill.gxlianhua != undefined){
 			lib.skill.gxlianhua.marktext = "丹血";
 		}
-		if(lib.skill.gxlianhua != undefined){
+		if(lib.skill.zhafu?.subSkill?.hf != undefined){
 			lib.skill.zhafu.subSkill.hf.marktext = "札";
 		}
 		// TW葛玄丹标记修改
