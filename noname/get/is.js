@@ -41,6 +41,18 @@ export class Is {
 		return false;
 	}
 	/**
+	 * 判断一张牌是否为伤害牌
+	 *
+	 * @param { string | Card | VCard } card
+	 * @param { Player | false } [player]
+	 * @returns { boolean }
+	 */
+	damageCard(card, player) {
+		if (typeof card == "string") card = { name: card };
+		if (!card || typeof card != "object") return false;
+		return get.tag(card, "damage", player, false) > 0;
+	}
+	/**
 	 * 判断坐骑栏是否被合并
 	 * @returns { boolean }
 	 */

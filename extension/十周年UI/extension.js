@@ -11832,11 +11832,15 @@ content:function(config, pack){
 			lib.skill.yechou2.marktext = "业仇";
 		}
 		// 承许贡表召、业仇标记修改
-		if(lib.skill.jsrgbiaozhao != undefined){
-			lib.skill.jsrgbiaozhao.subSkill.A.marktext = "表召";
-			lib.skill.jsrgbiaozhao.subSkill.B.marktext = "表召";
+		if(lib.skill.jsrgbiaozhao != undefined && lib.skill.jsrgbiaozhao.subSkill != undefined){
+			if(lib.skill.jsrgbiaozhao.subSkill.A != undefined){
+				lib.skill.jsrgbiaozhao.subSkill.A.marktext = "表召";
+			}
+			if(lib.skill.jsrgbiaozhao.subSkill.B != undefined){
+				lib.skill.jsrgbiaozhao.subSkill.B.marktext = "表召";
+			}
 		}
-		if(lib.skill.jsrgyechou != undefined){
+		if(lib.skill.jsrgyechou != undefined && lib.skill.jsrgyechou.subSkill != undefined && lib.skill.jsrgyechou.subSkill.effect != undefined){
 			lib.skill.jsrgyechou.subSkill.effect.marktext = "业仇";
 		}
 		// 界曹真司标记修改
