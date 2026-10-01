@@ -17237,7 +17237,7 @@ if(!(lib.config.extensions.contains("手杀ui")&&lib.config.extension_手杀ui_e
 				popup: false,
 				priority: -100,
 				filter:function(event){
-					return ui.clear.delay === 'usecard' && event.card.name != 'wuxie';
+					return ui.clear.delay === 'usecard' && event.card && event.card.name != 'wuxie';
 				},
 				content:function(){
 					ui.clear.delay = false;
@@ -17253,7 +17253,7 @@ if(!(lib.config.extensions.contains("手杀ui")&&lib.config.extension_手杀ui_e
 				popup: false,
 				priority: -100,
 				filter:function(event){
-				    return !ui.clear.delay && event.card.name != 'wuxie';
+				    return !ui.clear.delay && event.card && event.card.name != 'wuxie';
 				},
 				content:function(){
 					ui.clear.delay = 'usecard';

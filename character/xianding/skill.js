@@ -5767,7 +5767,10 @@ const skills = {
 				return;
 			}
 			const groupx = target.group;
-			const hps = [get.character(target.name).hp, get.character(target.name2).hp];
+			const hps = get
+				.nameList(target)
+				.map(name => get.character(name)?.hp)
+				.filter(hp => typeof hp === "number");
 			const skillsx = player.getSkills(null, false, false).filter(skill => !get.info(skill).charlotte);
 			/** @type { [skill: string, owner: string][] } */
 			const skills = [];
@@ -5804,7 +5807,7 @@ const skills = {
 						},
 					})
 					.forResult();
-				if (result.links?.length) {
+				if (result?.links?.length) {
 					await player.addAdditionalSkills(event.name, result.links, true);
 				}
 			} else {
@@ -5819,8 +5822,10 @@ const skills = {
 						return Math.random() - 0.5;
 					}
 					const sgn = get.sgnAttitude(player, target);
-					const name = target.name;
-					const hp = get.character(name).hp;
+					const hp = get
+						.nameList(target)
+						.map(name => get.character(name)?.hp)
+						.find(hp => typeof hp === "number");
 					if (hp >= 3 && hp <= 5) {
 						return sgn * (Math.random() + 1);
 					}

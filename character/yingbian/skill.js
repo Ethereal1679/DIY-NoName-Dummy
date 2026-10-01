@@ -612,8 +612,11 @@ const skills = {
 					forced: true,
 				})
 				.forResult();
-			if (!result.bool || !result.cards?.length) {
-				return;
+			// if (!result.bool || !result.cards?.length) {
+			// 	return;
+			// }
+			if (!result?.bool || !result.cards?.length) {
+					return;
 			}
 			const card = result.cards[0];
 			const cardx = get.autoViewAs({ name: "sha" }, [card]);

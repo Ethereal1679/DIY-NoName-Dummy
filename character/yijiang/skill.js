@@ -14217,6 +14217,15 @@ const skills = {
 				.set("check", check)
 				.forResult();
 
+			if (!event.result?.bool || !event.result.links?.length) {
+				event.result = {
+					...(event.result || {}),
+					bool: false,
+					links: [],
+					cards: [],
+				};
+				return;
+			}
 			event.result.cards = event.result.links;
 		},
 		logTarget: "player",

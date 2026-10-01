@@ -490,6 +490,16 @@ export class Player extends HTMLDivElement {
 		else if (Array.isArray(trigger.player)) trigger.player.add(after);
 		else if (typeof trigger.player == "string") trigger.player = [trigger.player, after];
 		const vars = {};
+		let directCleanup = false;
+		const cleanup = () => {
+			player.removeSkill(skillName);
+			delete lib.skill[skillName];
+			delete lib.translate[skillName];
+		};
+		const detachAfterTrigger = () => {
+			if (trigger.player == after) delete trigger.player;
+			else if (Array.isArray(trigger.player)) trigger.player.remove(after);
+		};
 		/**
 		 * 作用域
 		 * @type { (code: string) => any }
@@ -585,7 +595,7 @@ export class Player extends HTMLDivElement {
 		};
 		const createContent = () => {
 			const keys = Object.keys(vars);
-			if (scope && !keys.length) return legacyCreateContent();
+			if (!directCleanup && scope && !keys.length) return legacyCreateContent();
 			for (const key of keys) {
 				if (warnVars.includes(key)) console.warn(`Variable '${key}' should not be referenced by vars objects`);
 				if (errVars.includes(key)) throw new Error(`Variable '${key}' should not be referenced by vars objects`);
@@ -604,15 +614,17 @@ export class Player extends HTMLDivElement {
 				return Factory("event", "trigger", "player", "_status", "lib", "game", "ui", "get", "ai", `${varstr}\n${body}`);
 			});
 			skill.content = async function (event, trigger, player) {
-				if (event.triggername == `${skillName}After`) {
-					player.removeSkill(skillName);
-					delete lib.skill[skillName];
-					delete lib.translate[skillName];
+				if (!directCleanup && event.triggername == `${skillName}After`) {
+					cleanup();
 					return event.finish();
 				}
-				for (const content of contents) {
-					await content.call(this, event, trigger, player, _status, lib, game, ui, get, ai);
-					if (event.finished) break;
+				try {
+					for (const content of contents) {
+						await content.call(this, event, trigger, player, _status, lib, game, ui, get, ai);
+						if (event.finished) break;
+					}
+				} finally {
+					if (directCleanup) cleanup();
 				}
 			};
 			// @ts-ignore
@@ -685,6 +697,8 @@ export class Player extends HTMLDivElement {
 			},
 			step(fun) {
 				if (lib.skill[skillName] != skill) throw `This skill has been destroyed`;
+				directCleanup = true;
+				detachAfterTrigger();
 				skill.contentFuns.push(fun);
 				createContent();
 				return this;
