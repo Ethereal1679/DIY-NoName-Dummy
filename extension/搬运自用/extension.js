@@ -16406,7 +16406,7 @@ precontent:function(){
 							alert("检测到扩展文件夹内缺少 extension.js 文件" + "\n\r请检查扩展文件夹的文件结构是否正确！");
 							// alert("本层文件夹内缺少 extension.js 文件:\n游戏目录/extension/" + obj + "\n\r请检查扩展文件夹的文件结构是否正确！");
 						});
-					} else {
+					} else if (lib.node && lib.node.fs) {
 						// 非手机端，修复在非windows的平台上有问题的bug，感谢リいコしロ的指导
 						if (!lib.node.fs.existsSync(__dirname + '/extension/' + obj + '/' + 'extension.js')) {
 							alert("本层文件夹内缺少 extension.js 文件:\n游戏目录/extension/" + obj + "\n\r请检查扩展文件夹的文件结构是否正确！");

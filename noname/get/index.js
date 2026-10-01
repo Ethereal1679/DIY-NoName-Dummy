@@ -2300,9 +2300,10 @@ export class Get {
 		let func;
 		// Legacy extensions expect this window global to remain available after
 		// their callbacks are serialized and rebuilt inside this ES module.
-		const decadeUI = window.decadeUI;
-		void decadeUI;
+		const decadeUI = window.decadeUI || window.dui;
 		const str = info.slice(13).trim();
+		// Older UI callbacks may arrive before the decade UI is initialized.
+		if ((!decadeUI || !decadeUI.layout) && /\bdecadeUI\s*\.\s*layout\b/.test(str)) return function () {};
 		try {
 			// js内置的函数
 			if (/\{\s*\[native code\]\s*\}/.test(str)) return function () {};

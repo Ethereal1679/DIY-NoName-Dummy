@@ -550,7 +550,7 @@ export class Player extends HTMLDivElement {
 			"result",
 		];
 		const errVars = ["_status", "lib", "game", "ui", "get", "ai"];
-		const createContent = () => {
+		const legacyCreateContent = () => {
 			let varstr = "";
 			for (const key in vars) {
 				if (warnVars.includes(key))
@@ -583,6 +583,41 @@ export class Player extends HTMLDivElement {
 			// @ts-ignore
 			skill.content._parsed = true;
 		};
+		const createContent = () => {
+			const keys = Object.keys(vars);
+			if (scope && !keys.length) return legacyCreateContent();
+			for (const key of keys) {
+				if (warnVars.includes(key)) console.warn(`Variable '${key}' should not be referenced by vars objects`);
+				if (errVars.includes(key)) throw new Error(`Variable '${key}' should not be referenced by vars objects`);
+			}
+			const contents = skill.contentFuns.map(fun => {
+				if (typeof fun == "function" && !keys.length && !scope) return fun;
+				const source = String(fun);
+				const varstr = keys.map(key => `var ${key}=lib.skill['${skillName}'].vars['${key}'];`).join("\n");
+				if (typeof fun == "function") {
+					return Function("_status", "lib", "game", "ui", "get", "ai", `return function(event, trigger, player){${varstr}\nreturn (${source}).call(this, event, trigger, player);};`)(_status, lib, game, ui, get, ai);
+				}
+				const begin = source.indexOf("{") == source.indexOf("}") && source.indexOf("{") == -1 && source.indexOf("=>") > -1 ? source.indexOf("=>") + 2 : source.indexOf("{") + 1;
+				const body = source.slice(begin, source.lastIndexOf("}") != -1 ? source.lastIndexOf("}") : undefined).trim();
+				const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+				const Factory = /^async\b/.test(source.trim()) ? AsyncFunction : Function;
+				return Factory("event", "trigger", "player", "_status", "lib", "game", "ui", "get", "ai", `${varstr}\n${body}`);
+			});
+			skill.content = async function (event, trigger, player) {
+				if (event.triggername == `${skillName}After`) {
+					player.removeSkill(skillName);
+					delete lib.skill[skillName];
+					delete lib.translate[skillName];
+					return event.finish();
+				}
+				for (const content of contents) {
+					await content.call(this, event, trigger, player, _status, lib, game, ui, get, ai);
+					if (event.finished) break;
+				}
+			};
+			// @ts-ignore
+			skill.content._parsed = true;
+		};
 		Object.defineProperty(lib.skill, skillName, {
 			configurable: true,
 			//这类技能不需要被遍历到
@@ -606,6 +641,7 @@ export class Player extends HTMLDivElement {
 		if (instantlyAdd !== false) this.addSkill(skillName);
 		_status.postReconnect.player_when[1][skillName] = true;
 		return {
+			skill: skillName,
 			/**
 			 * @param { Required<Skill>['filter'] } fun
 			 */
@@ -642,6 +678,12 @@ export class Player extends HTMLDivElement {
 			 * @param { Required<Skill>['content'] } fun
 			 */
 			then(fun) {
+				if (lib.skill[skillName] != skill) throw `This skill has been destroyed`;
+				skill.contentFuns.push(fun);
+				createContent();
+				return this;
+			},
+			step(fun) {
 				if (lib.skill[skillName] != skill) throw `This skill has been destroyed`;
 				skill.contentFuns.push(fun);
 				createContent();
